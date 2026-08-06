@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { IAuthenticationService } from '../../../platform/authentication/common/authentication';
 import { CopilotToken } from '../../../platform/authentication/common/copilotToken';
 import { IBlockedExtensionService } from '../../../platform/chat/common/blockedExtensionService';
-import { ChatFetchResponseType, ChatLocation, getErrorDetailsFromChatFetchError } from '../../../platform/chat/common/commonTypes';
+import { ChatFetchResponseType, ChatLocation, getErrorDetailsFromChatFetchError, getFilteredMessage } from '../../../platform/chat/common/commonTypes';
 import { ConfigKey, IConfigurationService } from '../../../platform/configuration/common/configurationService';
 import { getTextPart } from '../../../platform/chat/common/globalStringUtils';
 import { EmbeddingType, getWellKnownEmbeddingTypeInfo, IEmbeddingsComputer } from '../../../platform/embeddings/common/embeddingsComputer';
@@ -858,6 +858,12 @@ export class CopilotLanguageModelWrapper extends Disposable {
 				const err = new Error(result.reason);
 				err.name = 'ChatRateLimited';
 				throw err;
+			} else if (result.type === ChatFetchResponseType.Filtered || result.type === ChatFetchResponseType.PromptFiltered) {
+				// Content filtering by the Responsible AI Service is an expected outcome, not an
+				// unexpected failure. Surface it as a properly-typed LanguageModelError so consuming
+				// extensions can handle it, instead of throwing a generic Error that the extension
+				// host records as an unhandled error in telemetry.
+				throw vscode.LanguageModelError.Blocked(getFilteredMessage(result.category, false));
 			}
 
 			throw new Error(result.reason);
