@@ -1948,7 +1948,7 @@ export function hookUpSymbolAttachmentDragAndContextMenu(accessor: ServicesAcces
 		if (!scopedContextKeyService) {
 			scopedContextKeyService = store.add(parentContextKeyService.createScoped(widget));
 			chatAttachmentResourceContextKey.bindTo(scopedContextKeyService).set(attachment.value.uri.toString());
-			setResourceContext(accessor, scopedContextKeyService, attachment.value.uri);
+			instantiationService.invokeFunction(accessor => setResourceContext(accessor, scopedContextKeyService!, attachment.value.uri));
 		}
 		return scopedContextKeyService;
 	};
