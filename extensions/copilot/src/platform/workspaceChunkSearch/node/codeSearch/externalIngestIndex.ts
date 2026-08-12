@@ -607,13 +607,23 @@ export class ExternalIngestIndex extends Disposable {
 
 				const storedVersion = this.getStoredCacheVersion(db);
 				if (storedVersion === ingestUtils.cacheVersion()) {
-					this._logService.trace(`ExternalIngestIndex: Cache version matches (${ingestUtils.cacheVersion()})`);
-					return db;
-				}
+					// The cache version matches, but the database file may still be corrupt on disk.
+					// A shallow read (such as the cache version lookup above) can succeed even when
+					// other pages are malformed, causing `database disk image is malformed` to surface
+					// later during reconciliation. Validate the whole file up front so a corrupt
+					// database is recreated instead of being adopted.
+					if (this.isDatabaseHealthy(db)) {
+						this._logService.trace(`ExternalIngestIndex: Cache version matches (${ingestUtils.cacheVersion()})`);
+						return db;
+					}
 
-				// Version mismatch - close and delete
-				this._logService.info(`ExternalIngestIndex: Cache version mismatch (stored: ${storedVersion}, current: ${ingestUtils.cacheVersion()}). Recreating database.`);
-				db.close();
+					this._logService.warn(`ExternalIngestIndex: Existing database failed integrity check. Recreating database.`);
+					db.close();
+				} else {
+					// Version mismatch - close and delete
+					this._logService.info(`ExternalIngestIndex: Cache version mismatch (stored: ${storedVersion}, current: ${ingestUtils.cacheVersion()}). Recreating database.`);
+					db.close();
+				}
 			} catch (error) {
 				this._logService.warn(`ExternalIngestIndex: Failed to open existing database, will recreate: ${error}`);
 			}
@@ -639,6 +649,24 @@ export class ExternalIngestIndex extends Disposable {
 			// Table may not exist in older databases
 		}
 		return undefined;
+	}
+
+	/**
+	 * Runs a SQLite integrity check to detect on-disk corruption before the database is adopted.
+	 *
+	 * A malformed database file can still satisfy shallow reads (like the cache version lookup),
+	 * only to fail later at runtime with `database disk image is malformed`. Validating the whole
+	 * file here lets us recreate a corrupt database instead of letting the error escape unhandled
+	 * during reconciliation.
+	 */
+	private isDatabaseHealthy(db: sql.DatabaseSync): boolean {
+		try {
+			const row = db.prepare('PRAGMA integrity_check').get();
+			return row?.integrity_check === 'ok';
+		} catch (error) {
+			this._logService.warn(`ExternalIngestIndex: Database integrity check failed: ${error}`);
+			return false;
+		}
 	}
 
 	private createFreshDatabase(dbPath: string | ':memory:'): sql.DatabaseSync {
