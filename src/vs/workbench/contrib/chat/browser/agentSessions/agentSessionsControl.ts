@@ -860,12 +860,19 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	focus(): void {
 		this.sessionsList?.domFocus();
 
-		try {
-			if ((this.sessionsList?.getFocus().length ?? 0) === 0) {
-				this.sessionsList?.focusFirst();
-			}
-		} catch {
-			// Tree model may be temporarily inconsistent during async refresh.
+		if (!this.sessionsList || this.sessionsList.getFocus().length > 0) {
+			return;
+		}
+
+		// Focus the first top-level element sourced from the tree model rather than calling
+		// focusFirst(), which sets focus by list-view index. During an async refresh the list
+		// view can reference an element that is momentarily absent from the tree model, which
+		// makes the onDidChangeFocus listener throw "Tree element not found" when it resolves
+		// the focused element. Re-check the element via hasNode() so focus only ever points at
+		// an element the model still holds.
+		const firstElement = this.sessionsList.getNode(this.agentSessionsService.model).children[0]?.element;
+		if (firstElement && this.sessionsList.hasNode(firstElement)) {
+			this.sessionsList.setFocus([firstElement]);
 		}
 	}
 
