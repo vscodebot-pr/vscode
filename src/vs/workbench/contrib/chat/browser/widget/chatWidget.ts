@@ -3206,6 +3206,13 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			}
 		}
 
+		if (!this.viewModel) {
+			// A concurrent session switch or teardown (e.g. setModel(undefined) or
+			// onDidDisposeModel) can clear the view model across the await points
+			// above. Bail out rather than dereferencing an undefined model.
+			return;
+		}
+
 		const model = this.viewModel.model;
 		if (options.cancelCurrentRequest && model.requestInProgress.get() && !cancelledCurrentRequest) {
 			await this.chatService.cancelCurrentRequestForSession(this.viewModel.sessionResource, 'acceptInput-stopAndSend');
