@@ -7,6 +7,14 @@ import { localize } from '../../../../nls.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { EXTENSIONS_ENABLE_AGENTS_WINDOW_CAPABILITY } from '../../../../platform/extensions/common/extensions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { registerExtensionsCommands } from '../../../../workbench/contrib/extensions/browser/extensionsCommands.js';
+
+// The Agents window loads chat and other contributions that invoke extension
+// install/uninstall commands (e.g. `workbench.extensions.installExtension`) but
+// does not load the full extensions contribution that registers them. Register
+// the commands here so those invocations resolve instead of failing with a
+// "command not found" error.
+registerExtensionsCommands();
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	id: 'extensions',
