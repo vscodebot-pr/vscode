@@ -6389,6 +6389,14 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		}
 		const backendChatResource = this.getBackendChatResource(chatResource);
 		if (!backendChatResource) {
+			// The default chat (no fragment) always exists; a missing backend URI
+			// only means the host-supplied chat catalog has not hydrated it yet.
+			// Treat this like the other startup prerequisites above and no-op so
+			// the automatic read transition can retry, instead of surfacing an
+			// unhandled "chat not found" error.
+			if (!chatResource.fragment) {
+				return false;
+			}
 			throw new Error(localize('chatNotFound', "The chat could not be found."));
 		}
 		if (!isActionKnownToVersion(action, initializeResult.protocolVersion)) {
